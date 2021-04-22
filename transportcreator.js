@@ -1,11 +1,13 @@
 function createSignalRTransport (lib, mylib) {
   'use strict';
 
-  var q = lib.q,
+  var Destroyable = lib.Destroyable,
+    q = lib.q,
     qlib = lib.qlib;
 
   //all attaching/detaching will be done by the channel
   function SignalRChannelTransport () {
+    Destroyable.call(this);
     this.buffer = new lib.StringBuffer(null, '');
     this.jobs = new qlib.JobCollection();
     this.dataCB = null;
@@ -14,7 +16,8 @@ function createSignalRTransport (lib, mylib) {
     this.onDrainDoneer = this.onDrainDone.bind(this);
     this.drainerPromise = null;
   }
-  SignalRChannelTransport.prototype.destroy = function () {
+  lib.inherit(SignalRChannelTransport, Destroyable);
+  SignalRChannelTransport.prototype.__cleanUp = function () {
     this.drainerPromise = null;
     this.onDrainDoneer = null;
     this.realSenderer = null;

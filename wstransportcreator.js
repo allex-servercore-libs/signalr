@@ -10,17 +10,21 @@ function createSignalRWSTransport (lib, mylib, timerlib) {
     Transport.call(this);
     this.ws = ws;
     this.onDataer = this.onData.bind(this);
-    this.ws.on('message', this.onDataer);
+    this.onErrorer = this.onError.bind(this);
     this.onCloseer = this.destroy.bind(this);
+    this.ws.on('message', this.onDataer);
+    this.ws.on('error', this.onErrorer);
     this.ws.on('close', this.onCloseer);
   }
   lib.inherit(SignalRWSTransport, Transport);
-  SignalRWSTransport.prototype.destroy = function () {
+  SignalRWSTransport.prototype.__cleanUp = function () {
     if (this.ws) {
       this.ws.off('message', this.onDataer);
+      this.ws.off('error', this.onErrorer);
       this.ws.off('close', this.onCloseer);
     }
     this.onDataer = null;
+    this.onErrorer = null;
     this.onCloseer = null;
     this.ws = null;
     Transport.prototype.destroy.call(this);
@@ -33,6 +37,10 @@ function createSignalRWSTransport (lib, mylib, timerlib) {
       this.send.bind(this),
       console.error.bind(console, 'onDataErr')
     );
+  };
+  SignalRWSTransport.prototype.onError = function (err) {
+    console.error('WS error', err);
+    this.destroy(err);
   };
   SignalRWSTransport.prototype.realSender = function (string) {
     var defer = q.defer(), ret = defer.promise;

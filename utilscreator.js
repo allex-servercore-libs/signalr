@@ -56,13 +56,16 @@ function createSignalRUtils (lib, mylib) {
     this.dataRead = '';
     this.dataer = this.onData.bind(this);
     this.packer = this.pack.bind(this);
+    this.rejecter = this.reject.bind(this);
   }
   lib.inherit(PostHttpRequestReqder, JobBase);
   PostHttpRequestReqder.prototype.destroy = function () {
     if (this.req && lib.isFunction(this.req.off)) {
       this.req.off('data', this.dataer);
       this.req.off('end', this.packer);
+      this.req.off('error', this.rejecter);
     }
+    this.rejecter = null;
     this.packer = null;
     this.dataer = null;
     this.dataRead = null;
@@ -88,6 +91,7 @@ function createSignalRUtils (lib, mylib) {
     }
     this.req.on('data', this.dataer);
     this.req.on('end', this.packer);
+    this.req.on('error', this.rejecter);
   };
   PostHttpRequestReqder.prototype.onData = function (data) {
     this.dataRead += data.toString('utf8');

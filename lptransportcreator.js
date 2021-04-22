@@ -12,7 +12,7 @@ function createSignalRLongPollingTransport (lib, mylib) {
     this.poller = null;
   }
   lib.inherit(SignalRLongPollingTransport, Transport);
-  SignalRLongPollingTransport.prototype.destroy = function () {
+  SignalRLongPollingTransport.prototype.__cleanUp = function () {
     if (this.poller) {
       this.poller.end();
     }

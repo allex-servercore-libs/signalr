@@ -1,7 +1,12 @@
 function createSignalRChannel(lib, mylib, timerlib) {
   'use strict';
 
+  var q = lib.q,
+    Destroyable = lib.Destroyable;
+
+
   function SignalRChannel (serverhandler, id) {
+    Destroyable.call(this);
     this.serverHandler = serverhandler;
     this.id = id;
     this.transport = null;
@@ -11,7 +16,9 @@ function createSignalRChannel(lib, mylib, timerlib) {
     this.serverHandler.channels.add(id, this);
     this.setNewState();
   }
-  SignalRChannel.prototype.destroy = function () {
+  lib.inherit(SignalRChannel, Destroyable);
+  SignalRChannel.prototype.__cleanUp = function () {
+    //console.log(this.id, 'going down');
     if (this.serverHandler &&
       this.serverHandler.channels &&
       lib.isFunction(this.serverHandler.channels.remove))
@@ -33,7 +40,7 @@ function createSignalRChannel(lib, mylib, timerlib) {
   SignalRChannel.prototype.setRemoteAddress = function (remoteaddress) {
     this.remoteAddress = lib.isString(remoteaddress) ? remoteaddress.replace('::ffff:', '') : null;
   }
-  SignalRChannel.prototype.destroyTransport = function (transport, skiptimeout) {
+  SignalRChannel.prototype.destroyTransport = function (transport) {
     if (transport) {
       transport.cleanUp();
     }
@@ -49,66 +56,29 @@ function createSignalRChannel(lib, mylib, timerlib) {
       transport.deathCB = this.destroyTransport.bind(this);
       transport.dataCB = this.ackData.bind(this);
       this.setRemoteAddress(transport.remoteAddress());
+      transport.destroyed.attachForSingleShot(this.destroyTransport.bind(this, transport));
+      this.msgQ.get(transport.send.bind(transport));
     }
     this.transport = transport;
-  };
-  SignalRChannel.prototype.dumpTo = function (res) {
-    if (this.dumperRes) {
-      this.dumperRes.end();
-    }
-    this.dumperRes = res;
-    this.recheckForMsgQOnDumper();
-    this.ackData(null);
-  };
-  SignalRChannel.prototype.recheckForMsgQOnDumper = function () {
-    if (!this.dumperRes) {
-      return;
-    }
-    if (this.msgQ.hasContents()) {
-      new mylib.StringBufferSender(this, 'msgQ', this.writeToDumper.bind(this), this.dumperDone.bind(this)).go();
-    }
-  };
-  SignalRChannel.prototype.writeToDumper = function (string) {
-    var defer, ret;
-    if (!this.dumperRes) {
-      return q.reject(new lib.Error('NO_HTTP_RESPONSE_TO_WRITE_TO'));
-    }
-    defer = q.defer(), ret = defer.promise;
-    console.log('writing', mylib.prettyPayload(string));
-    this.dumperRes.write(string, 'utf8', function (err) {
-      if (err) {
-        defer.reject(err);
-      } else {
-        defer.resolve(true);
-      }
-      defer = null;
-    });
-    return ret;
-  };
-  SignalRChannel.prototype.dumperDone = function () {
-    if (this.dumperRes) {
-      this.dumperRes.end();
-    }
-    this.dumperRes = null;
   };
   SignalRChannel.prototype.ackData = function (data) {
     try {
       if (this.state) {
         return this.state.ackData(data);
       }
-      throw new lib.Error('NO_STATE_TO_ACK_DATA_ON');
+      //throw new lib.Error('NO_STATE_TO_ACK_DATA_ON');
     } catch (e) {
       return q.reject(e);
     }
   };
   SignalRChannel.prototype.send = function (data) {
     var wasempty;
+    if (!this.msgQ) {
+      return;
+    }
     if (!this.transport) {
       wasempty = !this.msgQ.hasContents();
       this.msgQ.add(data);
-      if (wasempty) {
-        this.recheckForMsgQOnDumper();
-      }
       return;
     }
     this.transport.send(data);
@@ -196,6 +166,7 @@ function createSignalRChannel(lib, mylib, timerlib) {
     this.lastRx = Date.now();
     switch (parsed.type) {
       case 1:
+        //console.log('processInvocation', parsed.target, require('util').inspect(parsed.arguments, {colors: true, depth: 7}));
         return this.processInvocation(parsed.target, parsed.arguments);
         break;
       case 6: //handled by default with this.lastRx
@@ -213,7 +184,8 @@ function createSignalRChannel(lib, mylib, timerlib) {
     if (Date.now() - this.lastTx >= mylib.TimeConstant) {
       this.sendJSON({type: 6});
     }
-    if (Date.now() - this.lastRx >= 2*mylib.TimeConstant) {
+    var destroythreshold = this.channel.transport ? 2*mylib.TimeConstant : mylib.TimeConstant;
+    if (Date.now() - this.lastRx >= destroythreshold) {
       this.channel.destroy();
     }
   };

@@ -10,7 +10,9 @@ function createSignalRServerHandler (lib, mylib) {
     this.server = null;
     this.wsserver = null;
     this.handleBound = this.handle.bind(this);
+    this.onClientErrorBound = this.onClientError.bind(this);
     this.invocationHandler = invocationhandler;
+    this.cors = null; //this.cors put here to account for possible outside configuration
     this.channels = new lib.Map();
   }
   SignalRServerHandler.prototype.destroy = function () {
@@ -19,6 +21,7 @@ function createSignalRServerHandler (lib, mylib) {
       this.channels.destroy();
     }
     this.channels = null;
+    this.cors = null;
     this.invocationhandler = null;
     this.stopHandling();
     this.handleBound = null;
@@ -31,23 +34,30 @@ function createSignalRServerHandler (lib, mylib) {
   SignalRServerHandler.prototype.stopHandling = function () {
     if (this.server && this.handleBound) {
       this.server.off('request', this.handleBound);
+      this.server.off('clientError', this.onClientErrorBound);
     }
   };
   SignalRServerHandler.prototype.startHandling = function (server) {
     this.stopHandling();
     this.server = server;
     this.server.on('request', this.handleBound);
+    this.server.on('clientError', this.onClientErrorBound);
     this.wsserver = new WebSocket.Server({server: server});
     this.wsserver.on('connectionwithurl', this.onConnectionWithUrl.bind(this));
   };
   SignalRServerHandler.prototype.handle = function (req, res) {
-    var up = new mylib.UrlParser(req.url, 'protocol://host/'), id, ch, ra, tr;
+    var up = new mylib.UrlParser(req.url, 'protocol://host/'), cors, id, ch, ra, tr;
     if (!up.isValid()) {
       res.writeHeader(404);
       res.end();
       return;
     }
     if (up.isNegotiate()) {
+      cors = this.cors || req.headers.origin || '*';
+      res.setHeader('Access-Control-Allow-Origin', cors);
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+      res.setHeader("Access-Control-Allow-Methods", "GET,HEAD,OPTIONS,POST,PUT");
+      res.setHeader("Access-Control-Allow-Headers", "Access-Control-Allow-Headers, Origin,Accept, X-Requested-With, Content-Type, Access-Control-Request-Method, Access-Control-Request-Headers, X-SignalR-User-Agent");
       res.writeHeader(200);
       do {
         id = ++this.counter;
@@ -56,7 +66,7 @@ function createSignalRServerHandler (lib, mylib) {
       ch = new mylib.Channel(this, id+'');
       res.end(JSON.stringify(
         {
-          connectionId: id,
+          connectionId: id+'',
           availableTransports: [
             {
             transport: 'WebSockets',
@@ -96,24 +106,10 @@ function createSignalRServerHandler (lib, mylib) {
       res.end();
     }
     tr.handle(req, res);
-    return;
-
-    if (req.method=='POST') {
-      new mylib.PostHttpRequestReqder(req).go().then(
-        function(payload) {
-          ch.ackData(payload);
-          ch = null;
-        },
-        function(reason) {
-          console.error(reason);
-        }
-      );
-    } else {
-      res.writeHeader(200);
-      ch.dumpTo(res);
-    }
-    //process.exit(0);
-  }
+  };
+  SignalRServerHandler.prototype.onClientError = function (err, sock){
+    sock.end('HTTP/1.1 400 Bad Request\r\n\r\n');
+  };
   SignalRServerHandler.prototype.clientInvokes = function (channel, target, args) {
     if (!this.invocationHandler) {
       return;
