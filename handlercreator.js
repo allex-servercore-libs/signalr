@@ -12,6 +12,7 @@ function createSignalRServerHandler (lib, mylib) {
     this.handleBound = this.handle.bind(this);
     this.onClientErrorBound = this.onClientError.bind(this);
     this.invocationHandler = invocationhandler;
+    this.clearAllBound = this.clearAll.bind(this);
     this.cors = null; //this.cors put here to account for possible outside configuration
     this.channels = new lib.Map();
   }
@@ -22,6 +23,7 @@ function createSignalRServerHandler (lib, mylib) {
     }
     this.channels = null;
     this.cors = null;
+    this.clearAllBound = null;
     this.invocationhandler = null;
     this.stopHandling();
     this.handleBound = null;
@@ -32,10 +34,18 @@ function createSignalRServerHandler (lib, mylib) {
     this.server.close(console.log.bind(console, 'server closed'));
   };
   SignalRServerHandler.prototype.stopHandling = function () {
+    if (this.clearAllBound) {
+      process.off('SIGINT', this.clearAllBound);
+      process.off('exit', this.clearAllBound);
+    }
     if (this.server && this.handleBound) {
       this.server.off('request', this.handleBound);
       this.server.off('clientError', this.onClientErrorBound);
     }
+  };
+  SignalRServerHandler.prototype.clearAll = function () {
+    this.closeServer();
+    this.destroy();
   };
   SignalRServerHandler.prototype.startHandling = function (server) {
     this.stopHandling();
@@ -44,7 +54,9 @@ function createSignalRServerHandler (lib, mylib) {
     this.server.on('clientError', this.onClientErrorBound);
     this.wsserver = new WebSocket.Server({server: server});
     this.wsserver.on('connectionwithurl', this.onConnectionWithUrl.bind(this));
-  };
+    process.on('SIGINT', this.clearAllBound);
+    process.on('exit', this.clearAllBound);
+  };  
   SignalRServerHandler.prototype.handle = function (req, res) {
     var up = new mylib.UrlParser(req.url, 'protocol://host/'), cors, id, ch, ra, tr;
     if (!up.isValid()) {
