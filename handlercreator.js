@@ -57,7 +57,7 @@ function createSignalRServerHandler (lib, mylib) {
       res.setHeader('Access-Control-Allow-Origin', cors);
       res.setHeader('Access-Control-Allow-Credentials', 'true');
       res.setHeader("Access-Control-Allow-Methods", "GET,HEAD,OPTIONS,POST,PUT");
-      res.setHeader("Access-Control-Allow-Headers", "Access-Control-Allow-Headers, Origin,Accept, X-Requested-With, Content-Type, Access-Control-Request-Method, Access-Control-Request-Headers, X-SignalR-User-Agent");
+      res.setHeader("Access-Control-Allow-Headers", "Access-Control-Allow-Headers, Origin,Accept, X-Requested-With, Content-Type, Access-Control-Request-Method, Access-Control-Request-Headers, X-SignalR-User-Agent, Cache-Control");
       res.writeHeader(200);
       do {
         id = ++this.counter;
