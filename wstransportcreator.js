@@ -22,6 +22,7 @@ function createSignalRWSTransport (lib, mylib, timerlib) {
       this.ws.off('message', this.onDataer);
       this.ws.off('error', this.onErrorer);
       this.ws.off('close', this.onCloseer);
+      this.ws.terminate();
     }
     this.onDataer = null;
     this.onErrorer = null;

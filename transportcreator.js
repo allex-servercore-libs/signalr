@@ -11,7 +11,6 @@ function createSignalRTransport (lib, mylib) {
     this.buffer = new lib.StringBuffer(null, '');
     this.jobs = new qlib.JobCollection();
     this.dataCB = null;
-    this.deathCB = null;
     this.realSenderer = this.realSender.bind(this);
     this.onDrainDoneer = this.onDrainDone.bind(this);
     this.drainerPromise = null;
@@ -21,10 +20,6 @@ function createSignalRTransport (lib, mylib) {
     this.drainerPromise = null;
     this.onDrainDoneer = null;
     this.realSenderer = null;
-    if (this.deathCB) {
-      this.deathCB(this);
-    }
-    this.deathCB = null;
     this.dataCB = null;
     if (this.jobs) {
       this.jobs.destroy();
@@ -36,16 +31,11 @@ function createSignalRTransport (lib, mylib) {
     this.buffer = null;
   };
   SignalRChannelTransport.prototype.cleanUp = function () {
-    this.deathCB = null;
     this.dataCB = null;
     if (this.buffer) {
       this.buffer.destroy();
     }
     this.buffer = null;
-    if (this.channel) {
-      this.channel.detachTransport(this);
-    }
-    this.channel = null;
   };
   SignalRChannelTransport.prototype.remoteAddress = function () {
     throw new lib.Error('NOT_IMPLEMENTED', this.constructor.name+' has to implement remoteAddress()');

@@ -53,7 +53,6 @@ function createSignalRChannel(lib, mylib, timerlib) {
       this.destroyTransport(this.transport, true);
     }
     if (transport) {
-      transport.deathCB = this.destroyTransport.bind(this);
       transport.dataCB = this.ackData.bind(this);
       this.setRemoteAddress(transport.remoteAddress());
       transport.destroyed.attachForSingleShot(this.destroyTransport.bind(this, transport));

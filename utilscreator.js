@@ -11,7 +11,6 @@ function createSignalRUtils (lib, mylib) {
     var urlobj = new URL(url, 'protocol://host/');
     this.searchParams = urlobj.searchParams;
     this.pathelements = urlobj.pathname.split('/');
-    this.channel = null;
     this.command = null;
     if (this.isValid()) {
       this.command = this.pathelements[this.pathelements.length-1];
@@ -19,7 +18,6 @@ function createSignalRUtils (lib, mylib) {
   }
   UrlParser.prototype.destroy = function () {
     this.command = null;
-    this.channel = null;
     this.pathelements = null;
     this.searchParams = null;
   };

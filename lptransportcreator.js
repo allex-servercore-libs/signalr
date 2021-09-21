@@ -48,19 +48,21 @@ function createSignalRLongPollingTransport (lib, mylib) {
     this.processingPost = true;
     (new mylib.PostHttpRequestReqder(req)).go().then(
       this.onPostRead.bind(this, res),
-      function (reason) {
-        console.error('reason', reason);
-        res.writeError(400);
-        res.end();
-        res = null;
-      }
+      onPostReadFail.bind(null, res)
     );
-
+    res = null;
+  };
+  function onPostReadFail (res, reason) {
+    console.error('reason', reason);
+    res.writeError(400);
+    res.end();
+    res = null;
   };
   SignalRLongPollingTransport.prototype.handlePoll = function (res) {
     var bound;
     if (this.drainerPromise) {
       bound = this.handlePoll.bind(this, res);
+      res = null;
       this.drainerPromise.then(bound, bound);
       return;
     }
@@ -74,6 +76,7 @@ function createSignalRLongPollingTransport (lib, mylib) {
       this.send.bind(this),
       console.error.bind(console, 'onDataErr')
     );
+    res = null;
   };
   SignalRLongPollingTransport.prototype.realSender = function (string) {
     var defer, ret;
