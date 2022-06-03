@@ -5,7 +5,8 @@ function createSignalRServerHandler (lib, mylib) {
 
   var WebSocket = lib.ws;
 
-  function SignalRServerHandler (invocationhandler) {
+  function SignalRServerHandler (options, invocationhandler) {
+    this.options = options;
     this.counter = 0;
     this.server = null;
     this.wsserver = null;
@@ -14,22 +15,24 @@ function createSignalRServerHandler (lib, mylib) {
     this.invocationHandler = invocationhandler;
     this.clearAllBound = this.clearAll.bind(this);
     this.onConnectionWithUrlBound = this.onConnectionWithUrl.bind(this);
-    this.cors = null; //this.cors put here to account for possible outside configuration
     this.channels = new lib.Map();
   }
   SignalRServerHandler.prototype.destroy = function () {
+    this.stopHandling();
     if (this.channels) {
       lib.containerDestroyAll(this.channels);
       this.channels.destroy();
     }
     this.channels = null;
-    this.cors = null;
     this.onConnectionWithUrlBound = null;
     this.clearAllBound = null;
     this.invocationhandler = null;
-    this.stopHandling();
+    this.onClientErrorBound = null;
     this.handleBound = null;
+    this.wsserver = null;
     this.server = null;
+    this.counter = null;
+    this.options = null;
   };
   SignalRServerHandler.prototype.close = function () {
     this.clearAll();
@@ -40,8 +43,12 @@ function createSignalRServerHandler (lib, mylib) {
     }
     this.stopHandling();
     if (this.server.listening) {
-      this.server.close(console.log.bind(console, 'SignalR http server closed'));
+      this.server.close(this.onServerClosed.bind(this));
     }
+  };
+  SignalRServerHandler.prototype.onServerClosed = function () {
+    console.log('SignalR http server closed');
+    this.closeServer();
   };
   SignalRServerHandler.prototype.stopHandling = function () {
     if (this.clearAllBound) {
@@ -70,7 +77,7 @@ function createSignalRServerHandler (lib, mylib) {
     this.server.on('request', this.handleBound);
     this.server.on('clientError', this.onClientErrorBound);
     this.server.on('close', this.clearAllBound);
-    this.wsserver = new WebSocket.Server({server: server});
+    this.wsserver = new WebSocket.Server(lib.extend({server: server}, this.options ? this.options.wsserver : {}));
     this.wsserver.on('connectionwithurl', this.onConnectionWithUrlBound);
   };  
   SignalRServerHandler.prototype.handle = function (req, res) {
@@ -81,7 +88,7 @@ function createSignalRServerHandler (lib, mylib) {
       return;
     }
     if (up.isNegotiate()) {
-      cors = this.cors || req.headers.origin || '*';
+      cors = (this.options ? this.options.cors : null) || req.headers.origin || '*';
       res.setHeader('Access-Control-Allow-Origin', cors);
       res.setHeader('Access-Control-Allow-Credentials', 'true');
       res.setHeader("Access-Control-Allow-Methods", "GET,HEAD,OPTIONS,POST,PUT");
