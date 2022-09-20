@@ -98,7 +98,7 @@ function createSignalRServerHandler (lib, mylib) {
         id = ++this.counter;
         ch = this.channels.get(id+'');
       } while (ch);
-      ch = new mylib.Channel(this, id+'');
+      ch = new mylib.Channel(this, req, id+'');
       res.end(JSON.stringify(
         {
           connectionId: id+'',

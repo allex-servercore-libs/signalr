@@ -5,12 +5,12 @@ function createSignalRChannel(lib, mylib, timerlib) {
     Destroyable = lib.Destroyable;
 
 
-  function SignalRChannel (serverhandler, id) {
+  function SignalRChannel (serverhandler, req, id) {
     Destroyable.call(this);
     this.serverHandler = serverhandler;
     this.id = id;
     this.transport = null;
-    this.remoteAddress = null;
+    this.remoteAddress = (req && req.headers && req.headers['x-forwarded-for']) ? req.headers['x-forwarded-for'] : null;
     this.state = null;
     this.msgQ = new lib.StringBuffer(null, null);
     this.serverHandler.channels.add(id, this);
@@ -38,6 +38,9 @@ function createSignalRChannel(lib, mylib, timerlib) {
     this.serverHandler = null;
   };
   SignalRChannel.prototype.setRemoteAddress = function (remoteaddress) {
+    if (this.remoteAddress) {
+      return;
+    }
     this.remoteAddress = lib.isString(remoteaddress) ? remoteaddress.replace('::ffff:', '') : null;
   }
   SignalRChannel.prototype.destroyTransport = function (transport) {
