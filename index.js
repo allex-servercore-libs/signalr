@@ -8,7 +8,7 @@ function createSignalRLib (execlib) {
   require('./jobscreator')(lib, mylib);
   require('./handlercreator')(lib, mylib);
   require('./transportcreator')(lib, mylib);
-  require('./lptransportcreator')(lib, mylib, timerlib);
+  require('./lptransportcreator')(lib, mylib);
   require('./wstransportcreator')(lib, mylib, timerlib);
   require('./channelcreator')(lib, mylib, timerlib);
 

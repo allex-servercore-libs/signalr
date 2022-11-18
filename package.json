@@ -1,6 +1,6 @@
 {
   "name": "allex_signalrservercorelib",
-  "version": "1.0.5",
+  "version": "1.1.0",
   "description": "AllExJS implementation of a SignalR server",
   "main": "index.js",
   "directories": {
@@ -23,7 +23,7 @@
     "allex_timerlib": "1.x"
   },
   "devDependencies": {
-    "@microsoft/signalr": "6.x"
+    "@microsoft/signalr": "7.x"
   },
   "author": "Andrija Petrovic <andrija.hers@gmail.com>",
   "license": "ISC",

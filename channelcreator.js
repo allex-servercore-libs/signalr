@@ -149,8 +149,8 @@ function createSignalRChannel(lib, mylib, timerlib) {
   function SignalRChannelHandshakenState (channel) {
     SignalRChannelState.call(this, channel);
     this.timer = new timerlib.Timer(this.onTimer.bind(this), mylib.TimeConstant, false);
-    this.lastTx = Date.now();
-    this.lastRx = Date.now();
+    this.lastTx = lib.now();
+    this.lastRx = lib.now();
   }
   lib.inherit(SignalRChannelHandshakenState, SignalRChannelState);
   SignalRChannelHandshakenState.prototype.destroy = function () {
@@ -165,7 +165,7 @@ function createSignalRChannel(lib, mylib, timerlib) {
     //data might be PackedMessage as well, for now only JSON
     var parsed = this.jsonParse(data);
     if (!parsed) return;
-    this.lastRx = Date.now();
+    this.lastRx = lib.now();
     switch (parsed.type) {
       case 1:
         //console.log('processInvocation', parsed.target, require('util').inspect(parsed.arguments, {colors: true, depth: 7}));
@@ -180,14 +180,16 @@ function createSignalRChannel(lib, mylib, timerlib) {
   };
   SignalRChannelHandshakenState.prototype.send = function (data) {
     SignalRChannelState.prototype.send.call(this, data);
-    this.lastTx = Date.now();
+    this.lastTx = lib.now();
   };
   SignalRChannelHandshakenState.prototype.onTimer = function () {
-    if (Date.now() - this.lastTx >= mylib.TimeConstant) {
-      this.sendJSON({type: 6});
+    var machinenow = lib.now();
+    if (machinenow - this.lastTx >= mylib.TimeConstant) {
+      //this.sendJSON({type: 6});
+      this.channel.invokeOnClient('_', ['?', machinenow]);
     }
     var destroythreshold = this.channel.transport ? 2*mylib.TimeConstant : mylib.TimeConstant;
-    if (Date.now() - this.lastRx >= destroythreshold) {
+    if (machinenow - this.lastRx >= destroythreshold) {
       this.channel.destroy();
     }
   };
