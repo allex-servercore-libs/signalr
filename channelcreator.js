@@ -166,6 +166,9 @@ function createSignalRChannel(lib, mylib, timerlib) {
     var parsed = this.jsonParse(data);
     if (!parsed) return;
     this.lastRx = lib.now();
+    if (lib.isArray(parsed.arguments) && parsed.arguments.length==1 && lib.isArray(parsed.arguments[0]) && parsed.arguments[0].length == 2 && parsed.arguments[0][0] == '!') {
+      return;
+    }
     switch (parsed.type) {
       case 1:
         //console.log('processInvocation', parsed.target, require('util').inspect(parsed.arguments, {colors: true, depth: 7}));
