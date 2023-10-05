@@ -60,22 +60,23 @@ function createSignalRTransport (lib, mylib) {
   };
   SignalRChannelTransport.prototype.send = function (string) {
     if (!this.buffer) {
-      return;
+      return q(false);
     }
     if (!string) {
-      return;
+      return q(false);
     }
     if (!string.endsWith(mylib.RecordSeparator)) {
       string += mylib.RecordSeparator;
     }
     this.buffer.add(string);
     if (!this.canStartDrain()) {
-      return;
+      return this.drainerPromise;
     }
     this.drainerPromise = this.jobs.run(
       '.', 
       new mylib.StringBufferSender(this, 'buffer', this.realSenderer, this.onDrainDoneer)
     );
+    return this.drainerPromise;
   };
   SignalRChannelTransport.prototype.canStartDrain = function () {
     return !this.drainerPromise;

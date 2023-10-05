@@ -49,7 +49,7 @@ function createSignalRJobs (lib, mylib) {
       this.resolve(true);
       return;
     }
-    sb.get(this.newSub.bind(this))
+    sb.get(this.newSub.bind(this));
   };
   StringBufferSender.prototype.newSub = function (string) {
     this.lastWriter = new SubStringBufferSender(this, string);

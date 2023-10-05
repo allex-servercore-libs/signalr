@@ -4,6 +4,47 @@ function createSignalRChannel(lib, mylib, timerlib) {
   var q = lib.q,
     Destroyable = lib.Destroyable;
 
+  var _CHUNKSIZE = 2**16;
+  function chunkize (str) {
+    var ret = [], i;
+    for (i=0; i<str.length; i+=_CHUNKSIZE) {
+      ret.push(str.substring(i, i+_CHUNKSIZE));
+    }
+    return ret;
+  }
+
+  function OutgoingBulk (target, str) {
+    this.target = target;
+    this.chunks = chunkize(str);
+    if (!this.chunks) {
+      console.error('wut?', str);
+    }
+    this.index = 0;
+  }
+  OutgoingBulk.prototype.destroy = function () {
+    this.index = null;
+    this.chunks = null;
+  };
+  OutgoingBulk.prototype.getChunk = function () {
+    return this.chunks[this.index];
+  };
+  OutgoingBulk.prototype.step = function () {
+    this.index++;
+  };
+  OutgoingBulk.prototype.moreToGo = function () {
+    var ret;
+    if (!lib.isArray(this.chunks)) {
+      return 0;
+    }
+    ret = this.chunks.length-1-this.index;
+    return (ret<0) ? 0 : ret;
+  };
+  OutgoingBulk.prototype.isDone = function () {
+    if (!lib.isArray(this.chunks)) {
+      return true;
+    }
+    return this.chunks.length<=this.index;
+  };
 
   function SignalRChannel (serverhandler, req, id) {
     Destroyable.call(this);
@@ -13,12 +54,18 @@ function createSignalRChannel(lib, mylib, timerlib) {
     this.remoteAddress = (req && req.headers && req.headers['x-forwarded-for']) ? req.headers['x-forwarded-for'] : null;
     this.state = null;
     this.msgQ = new lib.StringBuffer(null, null);
+    this.bulks = [];
+    this.bulk = null;
     this.serverHandler.channels.add(id, this);
     this.setNewState();
   }
   lib.inherit(SignalRChannel, Destroyable);
   SignalRChannel.prototype.__cleanUp = function () {
     //console.log(this.id, 'going down');
+    if(this.bulk) {
+       lib.arryDestroyAll(this.bulk);
+    }
+    this.bulks = null;
     if (this.serverHandler &&
       this.serverHandler.channels &&
       lib.isFunction(this.serverHandler.channels.remove))
@@ -83,16 +130,25 @@ function createSignalRChannel(lib, mylib, timerlib) {
       this.msgQ.add(data);
       return;
     }
-    this.transport.send(data);
+    return this.transport.send(data);
   };
   SignalRChannel.prototype.sendJSON = function (obj) {
-    this.send(JSON.stringify(obj) + mylib.RecordSeparator);
+    return this.send(JSON.stringify(obj) + mylib.RecordSeparator);
   };
   SignalRChannel.prototype.invokeOnClient = function (target) { //varargs
+    var args = Array.prototype.slice.call(arguments, 1);
+    var strargs = JSON.stringify(args);
+    if (strargs.length>_CHUNKSIZE) {
+      //console.log(strargs);
+      this.bulks.push(new OutgoingBulk(target, strargs));
+      this.sendChunkFromBulks();
+      return;
+    }
+    //console.log('sending', strargs);
     this.sendJSON({
       type: 1,
       target: target,
-      arguments: Array.prototype.slice.call(arguments, 1)
+      arguments: [strargs]
     });
   };
   SignalRChannel.prototype.setNewState = function () {
@@ -108,6 +164,34 @@ function createSignalRChannel(lib, mylib, timerlib) {
     this.state = null;
     return currstate;
   };
+  SignalRChannel.prototype.sendChunkFromBulks = function (bulk) {
+    if (!(lib.isArray(this.bulks) && this.bulks.length>0)) {
+      return;
+    }
+    if (this.bulk && this.bulk!=bulk) {
+      return;
+    }
+    this.bulk = this.bulks[0];
+    var ch = this.bulk.getChunk();
+    var p = this.sendJSON({
+      type: 1,
+      target: this.bulk.target,
+      arguments: [JSON.stringify([['~', this.bulk.moreToGo(), ch]])]
+    });
+    p.then(onChunkSentFromBulks.bind(this));
+  };
+
+  //statics on SignalRChannel
+  function onChunkSentFromBulks () {
+    this.bulk.step();
+    if (this.bulk.isDone()) {
+      this.bulks.shift();
+      this.bulk.destroy();
+      this.bulk = null;
+    }
+    lib.runNext(this.sendChunkFromBulks.bind(this, this.bulk));
+  }
+  //endof statics on SignalRChannel
 
   function SignalRChannelState (channel) {
     this.channel = channel;
