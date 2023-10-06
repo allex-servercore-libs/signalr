@@ -62,8 +62,9 @@ function createSignalRChannel(lib, mylib, timerlib) {
   lib.inherit(SignalRChannel, Destroyable);
   SignalRChannel.prototype.__cleanUp = function () {
     //console.log(this.id, 'going down');
-    if(this.bulk) {
-       lib.arryDestroyAll(this.bulk);
+    this.bulk = null;
+    if(this.bulks) {
+       lib.arryDestroyAll(this.bulks);
     }
     this.bulks = null;
     if (this.serverHandler &&

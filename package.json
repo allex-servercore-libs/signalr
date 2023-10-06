@@ -1,6 +1,6 @@
 {
   "name": "allex_signalrservercorelib",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "AllExJS implementation of a SignalR server",
   "main": "index.js",
   "directories": {
